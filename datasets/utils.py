@@ -34,7 +34,7 @@ def get_dataset(data_root, dataset_config):
 
     dataset.n_splits = dataset.train_mask.shape[1]
 
-    # transform mask to boolean to suppress warning
+    # transform mask in boolean to suppress warning
     dataset.train_mask = dataset.train_mask.to(th.bool)
     dataset.val_mask = dataset.val_mask.to(th.bool)
     dataset.test_mask = dataset.test_mask.to(th.bool)

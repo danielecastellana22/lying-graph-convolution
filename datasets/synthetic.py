@@ -8,6 +8,8 @@ from torch_geometric.datasets.fake import get_edge_index
 from typing import List, Union, Tuple
 from torch_geometric.data import InMemoryDataset, Data
 import torch_geometric.utils as geom_utils
+from sklearn.model_selection import train_test_split
+import numpy as np
 
 
 def __build_torch_geometric_fake_graph__(num_nodes, avg_degree):
@@ -23,7 +25,7 @@ def __build_torch_geometric_fake_graph__(num_nodes, avg_degree):
 
 
 def __sample_node_features__(num_nodes, num_classes, num_node_features, cluster_id=None, node_features_overlap=0):
-    sigma = th.ones((num_classes, num_node_features)) * 0.5
+    sigma = th.ones((num_classes, num_node_features))
     mu = (10*0.5) * (1 - node_features_overlap) * th.arange(num_classes).view(-1, 1).expand(-1, num_node_features)
 
     if cluster_id is None:
@@ -39,25 +41,76 @@ def multipartite_graph_generator(num_nodes, avg_degree, num_classes, num_node_fe
     num_nodes_for_class = num_nodes // num_classes + 1
     y = th.arange(0, num_nodes, dtype=th.long) // num_nodes_for_class
 
+    n_neighbours_list = th.clamp(th.ceil(avg_degree + 2 * th.randn(num_nodes)), min=1).to(int)
     edges_list = []
     for u in range(num_nodes):
-        n_neighbours = max(int(th.ceil(avg_degree + 2 * th.randn(1)).item()), 1)
 
         if connection_type == 'random':
-            possible_neigh = th.where(y != y[u])[0]
+            possible_neigh_mask = y != y[u]
         elif connection_type == 'easy':
             target_cluster = (num_classes - 1 - y[u])
             if target_cluster == y[u]:
                 # num_classes is odd
                 target_cluster = 0
-            possible_neigh = th.where(y == target_cluster)[0]
+            possible_neigh_mask = y == target_cluster
         else:
             raise ValueError(f'Connection type {connection_type} is not known!')
 
-        aux = th.randperm(len(possible_neigh))
-        for v in possible_neigh[aux[:n_neighbours]]:
-            edges_list.append(th.tensor([u, v]))
-            edges_list.append(th.tensor([v, u]))
+        possible_neigh_mask = th.logical_and(possible_neigh_mask, n_neighbours_list > 0)
+        possible_neigh = th.where(possible_neigh_mask)[0]
+        n_neighbours = min(n_neighbours_list[u], len(possible_neigh))
+        if n_neighbours > 0:
+            aux = th.randperm(len(possible_neigh))
+            for v in possible_neigh[aux[:n_neighbours]]:
+                edges_list.append(th.tensor([u, v]))
+                edges_list.append(th.tensor([v, u]))
+                n_neighbours_list[v] -= 1
+
+        n_neighbours_list[u] = 0
+
+    edge_index = th.stack(edges_list, dim=1)
+
+    x, _ = __sample_node_features__(num_nodes, num_classes, num_node_features, y, node_features_overlap)
+
+    data = Data(x=x, y=y, edge_index=geom_utils.coalesce(edge_index))
+    return data
+
+
+def community_graph_generator(num_nodes, avg_degree, num_classes, num_node_features, p_intra_community,
+                              node_features_overlap):
+
+    # assign each node to a group
+    num_nodes_for_class = num_nodes // num_classes + 1
+    y = th.arange(0, num_nodes, dtype=th.long) // num_nodes_for_class
+
+    n_neighbours_list = th.clamp(th.ceil(avg_degree + 2 * th.randn(num_nodes)), min=1).to(int)
+    n_neighbours_intra = th.tensor([th.sum(th.rand(n_neighbours_list[u]) < p_intra_community) for u in range(num_nodes)])
+    n_neighbours_extra = n_neighbours_list - n_neighbours_intra
+    assert th.all(n_neighbours_extra>=0) and th.all(n_neighbours_intra>=0)
+
+    edges_list = []
+    for u in range(num_nodes):
+
+        possible_intra_neigh = th.where(th.logical_and(y == y[u], n_neighbours_list > 0))[0]
+        possible_extra_neigh = th.where(th.logical_and(y != y[u], n_neighbours_list > 0))[0]
+
+        for type, n_neighbours, possible_neigh in [(0, n_neighbours_intra[u], possible_intra_neigh),
+                                                   (1, n_neighbours_extra[u], possible_extra_neigh)]:
+            n_neighbours = min(n_neighbours, len(possible_neigh))
+            if n_neighbours > 0:
+                aux = th.randperm(len(possible_neigh))
+                for v in possible_neigh[aux[:n_neighbours]]:
+                    edges_list.append(th.tensor([u, v]))
+                    edges_list.append(th.tensor([v, u]))
+                    n_neighbours_list[v] -= 1
+                    if type == 0:
+                        # intra neighbour
+                        n_neighbours_intra[v] -= 1
+                    else:
+                        # extra neighbour
+                        n_neighbours_extra[v] -= 1
+
+        n_neighbours_list[u] = 0
 
     edge_index = th.stack(edges_list, dim=1)
 
@@ -68,7 +121,8 @@ def multipartite_graph_generator(num_nodes, avg_degree, num_classes, num_node_fe
 
 
 class Synthetic(InMemoryDataset, ABC):
-    GENERATOR_FUN = {'multipartite': multipartite_graph_generator}
+    GENERATOR_FUN = {'multipartite': multipartite_graph_generator,
+                     'sbm': community_graph_generator}
                      #'count-neighbours-type': count_neighbours_type_graph_generator,
                      #'count-triangles': count_triangles_graph_generator}
 
@@ -119,21 +173,22 @@ class Synthetic(InMemoryDataset, ABC):
     def processed_file_names(self) -> Union[str, List[str], Tuple]:
         return 'data.pt'
 
-    def create_splits(self, n_splits=10, split_perc=None):
-
-        if split_perc is None:
-            split_perc = [70, 10, 20]
+    def create_splits(self, n_splits=10, test_fraction=0.2, val_fraction=0.2):
 
         # create the splits
-        N = self._data.y.shape[0]
+        y = self._data.y.numpy()
+        N = y.shape[0]
+        N_test = int(N*test_fraction)
+        N_val = int(N*val_fraction)
+
+
         self._data.train_mask = th.zeros((N, n_splits), dtype=th.bool)
         self._data.val_mask = th.zeros((N, n_splits), dtype=th.bool)
         self._data.test_mask = th.zeros((N, n_splits), dtype=th.bool)
         for i in range(n_splits):
-            N_tr = (split_perc[0] * N) // 100
-            N_val = (split_perc[1] * N) // 100
-            N_test = N - N_tr - N_val  # (split_perc[2] * N) // 100
-            aux = th.randperm(N)
-            self._data.train_mask[aux[:N_tr], i] = True
-            self._data.val_mask[aux[N_tr:N_tr + N_val], i] = True
-            self._data.test_mask[aux[N_test:], i] = True
+            train_val_idx, test_idx = train_test_split(np.arange(N), test_size=N_test, stratify=y)
+            train_idx, val_idx = train_test_split(train_val_idx, test_size=N_val, stratify=y[train_val_idx])
+
+            self._data.train_mask[train_idx, i] = True
+            self._data.val_mask[val_idx, i] = True
+            self._data.test_mask[test_idx, i] = True

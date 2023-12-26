@@ -3,6 +3,7 @@ import os.path as osp
 import numpy as np
 from .configuration import Config
 from .serialisation import from_json_file, from_torch_file
+from functools import reduce
 
 
 class ModelSelectionResult:
@@ -62,17 +63,22 @@ class ModelSelectionResult:
             return from_torch_file(file_path)
 
     def get_test_results(self):
+        if 'validation_metric' not in self.dict_results:
+            return None, None
         best_config_idx = np.nanargmax(self.dict_results['validation_metric'], axis=0)
         return self.dict_results['test_metric'][best_config_idx, np.arange(self.n_splits)], best_config_idx
 
     def get_avg_val_results(self, k_list):
+        if 'validation_metric' not in self.dict_results:
+            return None, None
+
         avg_res = self.dict_results['validation_metric'].mean(-1).reshape(self.grid_shape)
         labels = []
         for i, k in enumerate(self.grid):
             if k not in k_list:
-                avg_res = np.max(avg_res, i, keepdims=True)
+                avg_res = np.nanmax(avg_res, i, keepdims=True)
             else:
                 labels.append(self.grid[k])
 
-        return avg_res.squeeze() #, np.array(labels).squeeze()
+        return avg_res.squeeze(), labels
 
