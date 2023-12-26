@@ -36,9 +36,9 @@ def __train_loop__(dataset, model, optimiser, split_idx, n_epochs, patience, txt
         _, y_prob_list, _ = model(dataset, **other_model_forward_params)
         forward_time += time.time_ns() - s
 
-        class_loss = 0
-        for y_prob in y_prob_list:
-            class_loss += dataset.loss(y_prob[train_mask], y[train_mask])
+        class_loss = dataset.loss(y_prob_list[-1][train_mask], y[train_mask])
+        for y_prob in y_prob_list[:-1]:
+            class_loss += dataset.loss(y_prob[train_mask], y[train_mask]) / (len(y_prob_list)-1)
 
         s = time.time_ns()
         class_loss.backward()
@@ -79,10 +79,10 @@ def __train_loop__(dataset, model, optimiser, split_idx, n_epochs, patience, txt
     txt_logger.info(f'Best validation accuracy of {best_val_metric:0.2f} in epoch {best_epoch}')
 
     metrics_dict = {'training_metric': best_train_metric,
-                  'validation_metric': best_val_metric,
-                  'test_metric': best_test_metric,
-                  'avg_forward_time': forward_time/epoch,
-                  'avg_backward_time': backward_time/epoch}
+                    'validation_metric': best_val_metric,
+                    'test_metric': best_test_metric,
+                    'avg_forward_time': forward_time/epoch,
+                    'avg_backward_time': backward_time/epoch}
     if store_everything:
         return metrics_dict, best_h_list, best_y_logits, best_e_w_list
     else:
@@ -108,7 +108,8 @@ def end_to_end_training(config, split_idx, exp_dir, write_on_console):
     metrics_dict, best_h, best_y_logits, best_e_w = __train_loop__(dataset=dataset, model=model, optimiser=optimiser,
                                                                    split_idx=split_idx, txt_logger=txt_logger,
                                                                    n_epochs=config.training_config.n_epochs,
-                                                                   patience=config.training_config.patience)
+                                                                   patience=config.training_config.patience,
+                                                                   store_everything=config.training_config.store_everything)
 
     for h in txt_logger.handlers:
         txt_logger.removeHandler(h)
