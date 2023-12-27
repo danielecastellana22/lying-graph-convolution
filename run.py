@@ -13,7 +13,8 @@ def parse_arguments():
     # experiment params
     parser.add_argument('--results-dir', dest='results_dir', default='results')
     parser.add_argument('--data-dir', dest='data_dir', default='data')
-    parser.add_argument('--config-file', dest='config_file')
+    parser.add_argument('--exp-config-file', dest='exp_config_file')
+    parser.add_argument('--dataset-config-file', dest='dataset_config_file')
     parser.add_argument('--debug', dest='debug', action='store_true')
     parser.add_argument('--resume-dir', dest='resume_dir', default=None)
     parser.add_argument('--num-workers', dest='num_workers', default=10, type=int)
@@ -33,16 +34,15 @@ if __name__ == '__main__':
         exp_config = Config.from_yaml_file(os.path.join(base_dir, 'grid.yaml'))
     else:
         # read the config dict
-        exp_config = Config.from_yaml_file(args.config_file)
-        dataset_config = exp_config.dataset_config
+        exp_config = Config.from_yaml_file(args.exp_config_file)
+        dataset_config = Config.from_yaml_file(args.dataset_config_file)
         # create base directory for the experiment
-        dir_name = os.path.splitext(os.path.basename(args.config_file))[0]
-        base_dir = os.path.join(args.results_dir, dir_name)
-        base_dir = create_datatime_dir(base_dir)
+        base_dir = create_datatime_dir(args.results_dir)
 
     # load the dataset just to start the download if needed
     ds = get_dataset(args.data_dir, dataset_config)
     exp_config['storage_dir'] = args.data_dir
+    exp_config['dataset_config'] = dataset_config
 
     # select the training function according to the model class
     train_fun = string2class(exp_config.model_config['class']).get_training_fun()

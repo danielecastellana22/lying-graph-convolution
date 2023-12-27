@@ -3,7 +3,7 @@ import os.path as osp
 import torch.nn.functional as F
 from .metrics import roc_auc_metric, accuracy_metric
 from .synthetic import Synthetic
-from torch_geometric.datasets import HeterophilousGraphDataset, Planetoid, Actor
+from torch_geometric.datasets import HeterophilousGraphDataset, Planetoid, Actor, WebKB, WikipediaNetwork
 import torch_geometric.transforms as T
 from torch_geometric.utils import to_undirected, remove_self_loops
 import torch as th
@@ -16,17 +16,16 @@ def get_dataset(data_root, dataset_config):
     dataset_name = dataset_config.name
     extra_params = dataset_config.params if 'params' in dataset_config else {}
     if dataset_name in ['cornell', 'texas', 'wisconsin']:
-        raise NotImplementedError()
-        #dataset = WebKB(root=data_root, name=dataset_name, transform=T.NormalizeFeatures())
+        dataset = WebKB(root=data_root, name=dataset_name, transform=T.NormalizeFeatures(), **extra_params)
     elif dataset_name in ['chameleon', 'squirrel']:
         raise NotImplementedError()
         #dataset = WikipediaNetwork(root=data_root, name=dataset_name, transform=T.NormalizeFeatures())
     elif dataset_name == 'film':
         dataset = Actor(root=data_root, transform=T.NormalizeFeatures(), **extra_params)
     elif dataset_name in ['cora', 'citeseer', 'pubmed']:
-        dataset = Planetoid(root=data_root, name=dataset_name, transform=T.NormalizeFeatures(), split='geom-gcn', **extra_params)
+        dataset = Planetoid(root=data_root, name=dataset_name, transform=T.NormalizeFeatures(), **extra_params)
     elif dataset_name in ['roman-empire', 'minesweeper', 'amazon-ratings']:
-        dataset = HeterophilousGraphDataset(root=data_root, name=dataset_name)
+        dataset = HeterophilousGraphDataset(root=data_root, name=dataset_name, **extra_params)
     elif dataset_name in Synthetic.POSSIBLE_NAMES:
         dataset = Synthetic(root=data_root, name=dataset_name, **extra_params)
     else:
@@ -48,6 +47,7 @@ def get_dataset(data_root, dataset_config):
         dataset.metric = accuracy_metric
 
     # build edge_id
+    '''
     edge_id_file = os.path.join(dataset.processed_dir, 'edge_id.pt')
     if os.path.exists(edge_id_file):
         dataset.edge_id = from_torch_file(edge_id_file)
@@ -65,5 +65,5 @@ def get_dataset(data_root, dataset_config):
         dataset.edge_id = edge_id
         # store the edge_id map
         to_torch_file(edge_id, edge_id_file)
-
+    '''
     return dataset

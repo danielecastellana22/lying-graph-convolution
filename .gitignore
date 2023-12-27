@@ -1,5 +1,5 @@
 .idea
 .git
 notebooks
-config
-run_all.sh
+configs
+*.sh
