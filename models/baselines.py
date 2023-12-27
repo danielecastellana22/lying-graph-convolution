@@ -4,14 +4,31 @@ import torch_geometric.nn as geom_nn
 import torch.nn.functional as F
 from .__base__ import BaseDGN
 
+
 class GCN(BaseDGN):
 
     def __init__(self, **kwargs):
+
         super(GCN, self).__init__(**kwargs)
 
     def __init_conv__(self, **params):
+        params.pop('layer')
         conv = geom_nn.GCNConv(**params)
         return conv, conv.out_channels
+
+
+class GCN2(BaseDGN):
+
+    def __init__(self, **kwargs):
+        super(GCN2, self).__init__(**kwargs)
+
+    def __init_conv__(self, **params):
+        in_ch = params.pop('in_channels')
+        out_ch = params.pop('out_channels')
+        assert in_ch == out_ch
+        params['channels'] = in_ch
+        conv = geom_nn.GCNConv(**params)
+        return conv, conv.channels
 
 
 class GATv2(BaseDGN):

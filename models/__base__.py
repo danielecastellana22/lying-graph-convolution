@@ -7,46 +7,29 @@ from training import end_to_end_training
 class BaseDGN(nn.Module):
 
     def __init__(self, n_layers, num_in_channels, num_hidden_channels, num_out_channels,
-                 p_dropout, p_input_dropout, add_self_loops, skip_connections, concat_ego_neigh_embs,
-                 act_fun, share_layer=False,
-                 classifier_at_each_layer=False, **other_conv_params):
+                 p_dropout, p_input_dropout, act_fun, skip_connections=False,
+                 classifier_at_each_layer=False, **init_conv_params):
         super(BaseDGN, self).__init__()
         self.layers_list = nn.ModuleList()
-        self.skip_connections = skip_connections
 
+        self.skip_connections = skip_connections
         self.p_dropout = p_dropout
         self.p_input_dropout = p_input_dropout
         self.input_lin = nn.Linear(num_in_channels, num_hidden_channels)
 
-        self.concat_ego_neigh_embs = concat_ego_neigh_embs
-        if concat_ego_neigh_embs:
-            self.combination_module_list = nn.ModuleList()
-        else:
-            self.combination_module_list = None
-
-        #self.share_layer = share_layer
-        #self.num_iters = 1 if not self.share_layer else self.n_layers
         assert n_layers > 0
         in_size = num_hidden_channels
         out_size_list = []
-        for i in range(n_layers if not share_layer else 2):
-            if i > 0 and self.skip_connections:
-                in_size += num_hidden_channels
+
+        for i in range(n_layers):
             layer, out_size = self.__init_conv__(in_channels=in_size,
                                                  out_channels=num_hidden_channels,
-                                                 add_self_loops=add_self_loops,
-                                                 **other_conv_params)
+                                                 layer=i+1,
+                                                 **init_conv_params)
             self.layers_list.append(layer)
-            if self.combination_module_list is not None:
-                self.combination_module_list.append(nn.Linear(in_size + out_size, out_size))
 
             out_size_list.append(out_size)
             in_size = out_size
-
-        if share_layer:
-            self.layers_list = nn.ModuleList([self.layers_list[0]] + [self.layers_list[-1]]*(n_layers-1))
-            if self.combination_module_list is not None:
-                self.combination_module_list = nn.ModuleList([self.combination_module_list[0]] + [self.combination_module_list[-1]]*(n_layers-1))
 
         self.classifier_at_each_layer = classifier_at_each_layer
         if classifier_at_each_layer:
@@ -78,27 +61,23 @@ class BaseDGN(nn.Module):
         transformed_x = F.dropout(data.x, p=self.p_input_dropout, training=self.training)
         transformed_x = self.act_fun(self.input_lin(transformed_x))
 
+        if self.skip_connections:
+            other_parms['x_0']=transformed_x
+
         layer_input = transformed_x
         y_pred_list = []
         for i, l in enumerate(self.layers_list):
-            # build the input
-            if i>0 and self.skip_connections:
-                layer_input = th.concat([layer_input, transformed_x], dim=1)
 
             # compute the output
-            layer_output, e_w = self.__extract_conv_results__(l(layer_input, edge_index, **other_parms))
+            layer_output, e_w = self.__extract_conv_results__(l(x=layer_input, edge_index=edge_index, **other_parms))
             if e_w is not None:
                 e_w_list.append(e_w)
 
             # manage the output
-            if self.combination_module_list is not None:
-                layer_output = self.combination_module_list[i](th.concat([layer_input, layer_output], dim=1))
-            #layer_output = F.relu(layer_output)
-            layer_output = F.tanh(layer_output)
-            layer_output = F.dropout(layer_output, p=self.p_dropout, training=self.training)
-
+            layer_output = self.act_fun(layer_output)
             h_list.append(layer_output)
 
+            layer_output = F.dropout(layer_output, p=self.p_dropout, training=self.training)
             layer_input = layer_output
 
             if self.classifier_at_each_layer:
@@ -107,7 +86,6 @@ class BaseDGN(nn.Module):
         if not self.classifier_at_each_layer:
             y_pred_list.append(self.classifiers_list[-1](h_list[-1]))
 
-        # TODO: maye we can remove y_pred as list
         return h_list, y_pred_list, e_w_list if len(e_w_list) > 0 else [None]
 
     @staticmethod

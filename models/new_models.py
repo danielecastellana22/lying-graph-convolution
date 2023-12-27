@@ -1,5 +1,5 @@
 from .baselines import BaseDGN
-from convs import LyingConv, SparseLyingConv
+from lying_convs import LyingGCNConv, LyingGCN2Conv
 
 
 class LyingGCN(BaseDGN):
@@ -7,20 +7,24 @@ class LyingGCN(BaseDGN):
         super(LyingGCN, self).__init__(**kwargs)
 
     def __init_conv__(self, **params):
-        conv = LyingConv(**params)
+        conv = LyingGCNConv(**params)
         return conv, conv.out_channels
 
     def __extract_conv_results__(self, conv_results):
         return conv_results
 
 
-class SparseLyingGCN(BaseDGN):
+class LyingGCN2(BaseDGN):
     def __init__(self, **kwargs):
-        super(SparseLyingGCN, self).__init__(**kwargs)
+        super(LyingGCN2, self).__init__(**kwargs)
 
     def __init_conv__(self, **params):
-        conv = SparseLyingConv(**params)
-        return conv, conv.out_channels
+        in_ch = params.pop('in_channels')
+        out_ch = params.pop('out_channels')
+        assert in_ch == out_ch
+        params['channels'] = in_ch
+        conv = LyingGCN2Conv(**params)
+        return conv, conv.channels
 
     def __extract_conv_results__(self, conv_results):
         return conv_results
