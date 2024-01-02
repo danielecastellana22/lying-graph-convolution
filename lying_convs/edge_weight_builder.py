@@ -10,7 +10,7 @@ class DiagonalEdgeWeightBuilder(nn.Module):
         self.out_channels = out_channels
         self.symmetric = symmetric
 
-        self.mlp = nn.Sequential(nn.Linear(2 * in_channels, out_channels), nn.Tanh())
+        self.mlp = nn.Sequential(nn.Linear(2 * in_channels, out_channels, bias=False), nn.Tanh())
 
     def forward(self, x_u, x_v):
         out = self.mlp(th.cat([x_u, x_v], dim=1))
