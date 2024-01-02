@@ -27,7 +27,7 @@ class GCN2(BaseDGN):
         out_ch = params.pop('out_channels')
         assert in_ch == out_ch
         params['channels'] = in_ch
-        conv = geom_nn.GCNConv(**params)
+        conv = geom_nn.GCN2Conv(**params)
         return conv, conv.channels
 
 

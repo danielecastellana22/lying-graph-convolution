@@ -31,6 +31,7 @@ def parallel_model_selection(train_config_fun,
             exp_dir = os.path.join(base_dir, f'config_{config_idx}', f'split_{split_idx}')
             if resume and os.path.exists(osp.join(exp_dir,'training_results.json')):
                 eprint(f'config_{config_idx} split_{split_idx} is already done!')
+                continue
 
             os.makedirs(exp_dir, exist_ok=resume)
 

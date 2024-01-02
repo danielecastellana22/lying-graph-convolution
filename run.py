@@ -29,9 +29,10 @@ if __name__ == '__main__':
         th.set_anomaly_enabled(True)
 
     if args.resume_dir is not None:
-        eprint('Resuming experiments! results-dir and config-file args will be ignored!')
+        eprint('Resuming experiments! results-dir and config files will be ignored!')
         base_dir = args.resume_dir
         exp_config = Config.from_yaml_file(os.path.join(base_dir, 'grid.yaml'))
+        ds = get_dataset(exp_config.storage_dir, exp_config.dataset_config)
     else:
         # read the config dict
         exp_config = Config.from_yaml_file(args.exp_config_file)
@@ -39,10 +40,10 @@ if __name__ == '__main__':
         # create base directory for the experiment
         base_dir = create_datatime_dir(args.results_dir)
 
-    # load the dataset just to start the download if needed
-    ds = get_dataset(args.data_dir, dataset_config)
-    exp_config['storage_dir'] = args.data_dir
-    exp_config['dataset_config'] = dataset_config
+        # load the dataset just to start the download if needed
+        ds = get_dataset(args.data_dir, dataset_config)
+        exp_config['storage_dir'] = args.data_dir
+        exp_config['dataset_config'] = dataset_config
 
     # select the training function according to the model class
     train_fun = string2class(exp_config.model_config['class']).get_training_fun()

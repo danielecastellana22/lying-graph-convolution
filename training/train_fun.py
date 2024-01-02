@@ -7,8 +7,7 @@ from datasets.utils import get_dataset
 import time
 
 
-def __train_loop__(dataset, model, optimiser, split_idx, n_epochs, patience, txt_logger,
-                   store_everything=False, **other_model_forward_params):
+def __train_loop__(dataset, model, optimiser, split_idx, n_epochs, patience, txt_logger, **other_model_forward_params):
 
     x, edge_index, y = dataset.x, dataset.edge_index, dataset.y
     train_mask = dataset.train_mask[:, split_idx]
@@ -83,10 +82,8 @@ def __train_loop__(dataset, model, optimiser, split_idx, n_epochs, patience, txt
                     'test_metric': best_test_metric,
                     'avg_forward_time': forward_time/epoch,
                     'avg_backward_time': backward_time/epoch}
-    if store_everything:
-        return metrics_dict, best_h_list, best_y_logits, best_e_w_list
-    else:
-        return metrics_dict, best_h_list[-1], best_y_logits, best_e_w_list[-1]
+
+    return metrics_dict, best_h_list, best_y_logits, best_e_w_list
 
 
 def end_to_end_training(config, split_idx, exp_dir, write_on_console):
@@ -108,8 +105,7 @@ def end_to_end_training(config, split_idx, exp_dir, write_on_console):
     metrics_dict, best_h, best_y_logits, best_e_w = __train_loop__(dataset=dataset, model=model, optimiser=optimiser,
                                                                    split_idx=split_idx, txt_logger=txt_logger,
                                                                    n_epochs=config.training_config.n_epochs,
-                                                                   patience=config.training_config.patience,
-                                                                   store_everything=config.training_config.store_everything)
+                                                                   patience=config.training_config.patience)
 
     for h in txt_logger.handlers:
         txt_logger.removeHandler(h)
@@ -117,6 +113,8 @@ def end_to_end_training(config, split_idx, exp_dir, write_on_console):
 
     to_json_file(metrics_dict, os.path.join(exp_dir, 'training_results.json'))
 
-    to_torch_file(best_h, os.path.join(exp_dir, 'node_embs.pt'))
-    to_torch_file(best_y_logits, os.path.join(exp_dir, 'y_logits.pt'))
-    to_torch_file(best_e_w, os.path.join(exp_dir, 'edge_weight.pt'))
+    store_everything = config.training_config.store_everything if 'store_everything' in config.training_config else False
+    if store_everything:
+        to_torch_file(best_h, os.path.join(exp_dir, 'node_embs.pt'))
+        to_torch_file(best_y_logits, os.path.join(exp_dir, 'y_logits.pt'))
+        to_torch_file(best_e_w, os.path.join(exp_dir, 'edge_weight.pt'))
