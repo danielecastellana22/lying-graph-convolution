@@ -47,7 +47,7 @@ class ModelSelectionResult:
                     current_res_d = from_json_file(results_file)
                     for k in current_res_d:
                         if k not in self.dict_results:
-                            self.dict_results[k] = np.full((n_configs, n_splits), fill_value=np.nan, dtype=object)
+                            self.dict_results[k] = np.full((n_configs, n_splits), fill_value=np.nan)
 
                         self.dict_results[k][config_idx, split_idx] = current_res_d[k]
 
@@ -68,6 +68,12 @@ class ModelSelectionResult:
         best_config_idx = np.nanargmax(self.dict_results['validation_metric'], axis=0)
         return self.dict_results['test_metric'][best_config_idx, np.arange(self.n_splits)], best_config_idx
 
+    def get_WRONG_test_results(self):
+        if 'validation_metric' not in self.dict_results:
+            return None, None
+        best_config_idx = np.nanargmax(np.nanmean(self.dict_results['validation_metric'], axis=1), axis=0)
+        return self.dict_results['test_metric'][best_config_idx, :], best_config_idx
+
     def get_avg_val_results(self, k_list):
         if 'validation_metric' not in self.dict_results:
             return None, None
@@ -81,4 +87,17 @@ class ModelSelectionResult:
                 labels.append(self.grid[k])
 
         return avg_res.squeeze(), labels
+
+    def __str__(self):
+        self.update()
+        s = ''
+        s += '-' * 50 + '\n'
+        s += f"Config {self.count_exp_finished}/{self.tot_exp}\n"
+        test_res, best_config_idx = self.get_WRONG_test_results()
+        test_res *= 100
+        s += f"Test result: {np.mean(test_res):0.2f} ± {np.std(test_res):0.2f}\n"
+        s += f"Best config idx: {best_config_idx}\n"
+        s += '-' * 50 + '\n'
+        return s
+
 
