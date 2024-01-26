@@ -1,0 +1,21 @@
+training_config:
+  n_epochs: 1000
+  patience: 100
+  store_everything: False
+model_config:
+  class: models.LyingGCN
+  params:
+    n_layers: [2, 3, 4, 5, 10, 20, 30]
+    num_hidden_channels: [16, 32, 64]
+    act_fun: [tanh, relu, elu]
+    add_self_loops: True
+    p_dropout: [0.2, 0.4, 0.6, 0.8]
+    p_input_dropout: [0.4, 0.6, 0.8, 0.95]
+    symmetric: False
+    skip_connections: False
+    classifier_at_each_layer: False
+optimiser_config:
+  class: torch.optim.AdamW
+  params:
+    lr: 0.01
+    weight_decay: [0, 0.01, 0.1]

@@ -1,0 +1,20 @@
+training_config:
+  n_epochs: 1000
+  patience: 100
+  store_everything: True
+model_config:
+  class: models.GCN
+  params:
+    n_layers: [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    num_hidden_channels: [5, 10, 20 ]
+    act_fun: [tanh, relu]
+    add_self_loops: True
+    p_dropout: 0
+    skip_connections: False
+    p_input_dropout: 0
+    classifier_at_each_layer: False
+optimiser_config:
+  class: torch.optim.Adam
+  params:
+    lr: 0.01
+    weight_decay: 0

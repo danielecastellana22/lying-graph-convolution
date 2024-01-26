@@ -1,0 +1,8 @@
+name: 'multipartite'
+params:
+  num_nodes: 1600
+  avg_degree: 5
+  num_classes: 3
+  connection_type: 'random'
+  num_node_features: 10
+  node_features_overlap: 1
