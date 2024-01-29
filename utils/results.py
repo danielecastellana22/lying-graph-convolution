@@ -13,7 +13,7 @@ class ModelSelectionResult:
         self.exp_dir_path = exp_dir_path
         self.exp_config = Config.from_yaml_file(os.path.join(exp_dir_path, 'grid.yaml'))
         self.grid = self.exp_config.get_grid()
-        self.grid_shape = tuple([len(v) for k,v in self.grid.items()])
+        self.grid_shape = tuple([len(v) for k, v in self.grid.items()])
         self.count_exp_finished = 0
         self.tot_exp = 0
         self.dict_results = {}
@@ -51,10 +51,13 @@ class ModelSelectionResult:
 
                         self.dict_results[k][config_idx, split_idx] = current_res_d[k]
 
+    # TODO: implement methods to ravel/unravel
+    def get_config_detail(self, config_idx):
+        idx_list = np.unravel_index(config_idx, self.grid_shape)
+        return {k: v[idx_list[i]] for i, (k,v) in enumerate(self.grid.items())}
+
     def __getitem__(self, key_list):
-        metric = key_list[0]
-        split_idx = key_list[-1]
-        config_idx = np.ravel_multi_index(key_list[1:-1], self.grid_shape)
+        metric, config_idx, split_idx = tuple(key_list)
         if metric in self.dict_results:
             return self.dict_results[metric][config_idx, split_idx]
         else:
@@ -73,6 +76,10 @@ class ModelSelectionResult:
             return None, None
         best_config_idx = np.nanargmax(np.nanmean(self.dict_results['validation_metric'], axis=1), axis=0)
         return self.dict_results['test_metric'][best_config_idx, :], best_config_idx
+
+    def get_best_idx(self):
+        best_config_idx = np.nanargmax(np.nanmean(self.dict_results['validation_metric'], axis=1), axis=0)
+        return best_config_idx
 
     def get_avg_val_results(self, k_list):
         if 'validation_metric' not in self.dict_results:
@@ -95,7 +102,7 @@ class ModelSelectionResult:
         s += f"Config {self.count_exp_finished}/{self.tot_exp}\n"
         test_res, best_config_idx = self.get_WRONG_test_results()
         test_res *= 100
-        s += f"Test result: {np.mean(test_res):0.2f} ± {np.std(test_res):0.2f}\n"
+        s += f"Test result: {np.nanmean(test_res):0.2f} ± {np.nanstd(test_res):0.2f}\n"
         s += f"Best config idx: {best_config_idx}\n"
         s += '-' * 50 + '\n'
         return s
