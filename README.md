@@ -1,7 +1,9 @@
 # Lying Graph Convolution
-This is the officila repo of the paper:
+This is the official repo of the paper:
 
-*Lying Graph Convolution: Learning to Lie for Node Classification Tasks*
+D. Castellana, "Lying Graph Convolution: a Network for Node Classification Inspired by Opinion Dynamics," 2024 International Joint Conference on Neural Networks (IJCNN), Yokohama, Japana, 2024
+
+
 
 
 To execute an epxeriment:
