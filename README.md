@@ -1,10 +1,7 @@
 # Lying Graph Convolution
 This is the official repo of the paper:
 
-D. Castellana, "Lying Graph Convolution: a Network for Node Classification Inspired by Opinion Dynamics," 2024 International Joint Conference on Neural Networks (IJCNN), Yokohama, Japana, 2024
-
-
-
+*D. Castellana, "Lying Graph Convolution: a Network for Node Classification Inspired by Opinion Dynamics", 2024 International Joint Conference on Neural Networks (IJCNN), Yokohama, Japana, 2024*
 
 To execute an epxeriment:
 1) Install all the libraries in `requirements.txt`;
